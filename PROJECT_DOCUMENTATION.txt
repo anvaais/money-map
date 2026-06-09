@@ -1,0 +1,164 @@
+PROJECT DOCUMENTATION
+======================
+Project Name  : Money Map
+Version       : 1.0
+Date          : 2026-06-07
+Author        : Antigravity AI
+==============================================================
+
+
+1. PROJECT OVERVIEW
+------------------------------------------------------------
+What is this project?
+Money Map is a responsive, feature-rich web-based personal budget and finance tracking application specifically tailored for students. It serves as a visual dashboard helping users manage money, establish budget thresholds, set goals, export data, and generate financial summaries.
+
+What problem does it solve?
+Students often struggle with managing limited budgets, tracking where their money goes, keeping up with monthly savings goals, and preventing budget deficits. Money Map solves this by offering an intuitive interface to categorize income and expenses, set category-specific budgets, automatically compute monthly savings goals progression, and issue smart alerts when spending exceeds defined thresholds.
+
+Who is it for?
+It is designed primarily for students, freelancers, and guest users who want a simple, visually appealing, and highly accessible financial manager without complex setup or transaction fees.
+
+
+2. TECH STACK USED
+------------------------------------------------------------
+| Technology     | Type        | Why It Was Used           |
+|----------------|-------------|---------------------------|
+| HTML5          | Language    | Core structural markup of the page, defining the layout, navigation views, and forms. |
+| CSS3           | Language    | Styling system supporting light/dark theme variables, transitions, and component layouts. |
+| JavaScript (ES)| Language    | Application and authentication logic, DOM manipulation, storage bridge, and event handling. |
+| Chart.js       | Library     | Dynamic data visualization using bar and doughnut charts for financial analysis. |
+| Firebase App   | Framework   | Firebase SDK core wrapper supporting web application modules initialization. |
+| Firebase Auth  | Service     | Email/Password sign up/login, Firebase email verification verification links, and Google Sign-In. |
+| LocalStorage   | API         | Client-side persistent storage of transaction histories, active budgets, savings goals, and preferences. |
+
+
+3. PROJECT STRUCTURE
+------------------------------------------------------------
+Folder/File Name        | Purpose
+------------------------|----------------------------------
+firebase.json           | Firebase Hosting configuration specifying build output directory, rewrites, and headers.
+.firebaserc             | Mapping configuration file linking the local project environment to the default Firebase project ID.
+package.json            | Dependency registry file installing firebase library (^12.14.0).
+index.html              | Main page markup containing structural layout, side navigation, views, modal forms, and UI overlays.
+css/styles.css          | Global design system stylesheet defining typography (Inter/Outfit), spacing, and color schemes.
+css/components.css      | Custom stylesheet layout for reusable components including tables, progress bars, settings, and modal styles.
+js/app.js               | Core application script managing transactions, budgets, savings goals allocations, insights, and state.
+js/auth.js              | Authentication handler wrapping Firebase Auth APIs, guest/demo modes, email verification, and profile UI logic.
+
+
+4. FEATURES & FUNCTIONALITY
+------------------------------------------------------------
+Feature 1: Interactive Dashboard
+  - How it works : Displays total income, total expenses, remaining balance, and budget progress cards alongside dynamic monthly comparison charts and expense category breakdowns.
+  - File/Function: js/app.js -> updateSummaryCards(), updateCharts()
+
+Feature 2: Multi-Currency Selection
+  - How it works : Allows users to switch between PKR, USD, EUR, GBP, and SAR currencies. It dynamically updates all displays, balances, inputs, and chart formatting.
+  - File/Function: js/app.js -> setCurrency()
+
+Feature 3: Transaction Management
+  - How it works : Adds income or expense records with details like category, amount, date, description, and recurrence, listing them in a paginated, filterable table.
+  - File/Function: js/app.js -> addTransaction(), deleteTransaction(), renderTransactionTable()
+
+Feature 4: Budget Limit Threshold Alerts
+  - How it works : Enables category-wise monthly spending caps. Highlights balance/budget cards with warnings or danger styling if spending hits configured percentages.
+  - File/Function: js/app.js -> setBudget(), renderBudgetList()
+
+Feature 5: Savings Goals Tracker
+  - How it works : Creates financial goals with target amounts and dates, supporting direct fund allocations that record corresponding savings entries.
+  - File/Function: js/app.js -> addGoal(), allocateFunds(), renderGoals()
+
+Feature 6: Financial Reporting & CSV Export
+  - How it works : Generates specific date-range summaries (weekly, monthly, quarterly, all-time) and exports all entries cleanly to a CSV file.
+  - File/Function: js/app.js -> generateReport(), exportToCSV()
+
+Feature 7: Intelligent Spend Insights
+  - How it works : Evaluates monthly transactions to flag budget deficits, heavy category spending (e.g., >50% on food/entertainment), or savings progress.
+  - File/Function: js/app.js -> analyzeFinances()
+
+Feature 8: Data Backup and Restoration
+  - How it works : Allows exporting the application state to a local JSON file or restoring from a JSON backup while protecting active session identity.
+  - File/Function: js/app.js -> exportBackup(), importBackup()
+
+Feature 9: Dual Theme (Light/Dark Mode)
+  - How it works : Toggles data-theme attributes on the document body to dynamically load light or dark variables for colors, borders, and cards.
+  - File/Function: js/app.js -> setTheme(), toggleTheme()
+
+
+5. DATABASE / DATA FLOW
+------------------------------------------------------------
+Tables/Collections Used:
+  - LocalStorage (mm-state) : JSON database storing transactions, budgets, goals, theme, currency, preferences, customCategories, and user profile state.
+  - LocalStorage (mm_otp_verified_[uid]) : Boolean token tracking secure email verification authentication completion status.
+
+Data Flow:
+  User adds transaction/budget -> State object updated -> saveState() executes -> Stringified state saved in LocalStorage -> updateSummaryCards() & updateCharts() re-render DOM dynamically.
+
+
+6. APIS & INTEGRATIONS
+------------------------------------------------------------
+API Name       : Firebase Authentication Web SDK
+Purpose        : Handles user sign up, password logins, session management, email verification delivery, and Google oauth.
+Used In File   : js/auth.js
+How Integrated : Imported via CDN as an ES module, initialized with firebaseConfig, and linked to DOM click and submit listeners.
+
+API Name       : Chart.js CDN (v4.4.7)
+Purpose        : Renders responsive bar and doughnut charts depicting income vs expense data.
+Used In File   : index.html (script header), js/app.js
+How Integrated : Global class instantiations inside canvas context elements referencing dynamic JavaScript transaction array values.
+
+
+7. AUTHENTICATION & SECURITY
+------------------------------------------------------------
+Auth Method    : Firebase Authentication (Google Sign-In, Email/Password Login, and Guest/Demo mode)
+How It Works   : Sign ups invoke createUserWithEmailAndPassword() followed by sendEmailVerification() and profile name updates. Active logins require verification checking, re-directing unverified accounts to an OTP verification card. Google Sign-In fires signInWithPopup(), automatically verifying email status. Guest mode sets mock session details.
+Security Rules : Login validation blocks unverified users from loading dashboard state. Backups sanitize user IDs to prevent hijacking. Custom category deletions check bounds, and inputs restrict negative values.
+
+
+8. KEY FUNCTIONS & CODE LOGIC
+------------------------------------------------------------
+Function: loadState()
+  File    : js/app.js
+  Purpose : Rehydrates the local UI/application states from client storage.
+  Logic   : Fetches 'mm-state' from LocalStorage. If empty, falls back to pre-populated sample transactions and standard budgets for first-run visualization.
+
+Function: getResetDate(now, resetDayStr)
+  File    : js/app.js
+  Purpose : Determines the financial accounting monthly cycle starting date.
+  Logic   : Checks the user's custom preference day. If the current date is before this day, adjusts the tracking month backward to capture the correct billing period.
+
+Function: handleFormSubmit(e)
+  File    : js/auth.js
+  Purpose : Coordinates custom signup and password logins.
+  Logic   : Triggers Firebase sign up or sign in, updating profiles, throwing clean custom error alerts, and redirecting users to verification pages.
+
+
+9. HOW TO RUN THE PROJECT
+------------------------------------------------------------
+Step 1: Install dependencies
+  Command: npm install (downloads Firebase module dependencies registered in package.json)
+
+Step 2: Set up environment
+  Command: Setup Firebase web project at console.firebase.google.com, enable Google/Email sign in provider, and update firebaseConfig object in js/auth.js.
+
+Step 3: Run the project
+  Command: npx firebase serve (or use any live server extension on index.html, e.g. python -m http.server 8000)
+
+Step 4: Open in browser
+  URL: http://localhost:5000 (Firebase default) or http://localhost:8000
+
+
+10. WHAT I LEARNED / WHAT WAS CHALLENGING
+------------------------------------------------------------
+Key Concepts Used:
+  - Custom data backup management and state sanitization.
+  - Multi-theme UI implementation using CSS Custom Properties and dataset themes.
+  - Segmented control rendering using toggle switches and active attributes.
+  - Firebase Authentication integration with custom email verification flows.
+
+Most Challenging Part:
+  Synchronizing Firebase authentication session changes (email reload status) with LocalStorage bridges. Since password logins were forbidden until verified, users had to verify their emails, return to the tab, and click a confirmation button. Solving this required calling Firebase's reload() method on the user session before reading the currentUser.emailVerified boolean and updating the storage tokens.
+
+==============================================================
+END OF DOCUMENTATION
+==============================================================

@@ -1003,6 +1003,23 @@
   .budget-grid {
     grid-template-columns: 1fr;
   }
+
+  /* Mobile Touch-Friendly enhancements */
+  .btn-icon-delete {
+    width: 44px;
+    height: 44px;
+  }
+
+  .budget-item__delete {
+    opacity: 1;
+    width: 44px;
+    height: 44px;
+  }
+
+  .modal__close {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 /* ============================================================

@@ -181,17 +181,32 @@
   }
 
   function exportBackup() {
-    const dataStr = JSON.stringify(state, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    const userName = (state.user.name || 'User').replace(/\s+/g, '_');
-    link.download = `Money_Map_Backup_${userName}_${todayISO()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    try {
+      // Exclude charts (circular references) and user session details to prevent auth hijacking on restore
+      const dataToExport = {
+        transactions: state.transactions,
+        budgets: state.budgets,
+        goals: state.goals,
+        theme: state.theme,
+        currency: state.currency,
+        preferences: state.preferences,
+        customCategories: state.customCategories
+      };
+      const dataStr = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const userName = (state.user.name || 'User').replace(/\s+/g, '_');
+      link.download = `Money_Map_Backup_${userName}_${todayISO()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export backup failed:', err);
+      alert('Failed to export backup: ' + err.message);
+    }
   }
 
   function importBackup(e) {
@@ -201,14 +216,30 @@
     reader.onload = function(evt) {
       try {
         const parsed = JSON.parse(evt.target.result);
-        if (parsed && parsed.transactions !== undefined) {
-          localStorage.setItem('mm-state', JSON.stringify(parsed));
+        if (parsed && (parsed.transactions !== undefined || parsed.budgets !== undefined)) {
+          // Keep current logged-in user profile if available
+          const raw = localStorage.getItem('mm-state');
+          const current = raw ? JSON.parse(raw) : {};
+          
+          // Rebuild mm-state with imported data and current user profile to prevent hijacking
+          const newState = {
+            transactions: parsed.transactions || [],
+            budgets: parsed.budgets || {},
+            goals: parsed.goals || [],
+            theme: parsed.theme || current.theme || 'dark',
+            currency: parsed.currency || current.currency || 'PKR',
+            preferences: parsed.preferences || current.preferences || { resetDate: 1, alertThreshold: 80 },
+            customCategories: parsed.customCategories || [],
+            user: current.user || state.user // Keep the current user identity
+          };
+          
+          localStorage.setItem('mm-state', JSON.stringify(newState));
           window.location.reload(); // Quickest way to fully rehydrate all UI reliably
         } else {
-          alert('Invalid backup file format.');
+          alert('Invalid backup file format. The file must contain transactions or budgets.');
         }
       } catch (err) {
-        alert('Failed to parse backup file.');
+        alert('Failed to parse backup file: ' + err.message);
       }
     };
     reader.readAsText(file);
@@ -1579,6 +1610,8 @@
         state.user.isLoggedIn = true;
         state.user.email = 'guest@demo.com';
         state.user.name = 'Guest';
+        state.user.isGuest = true;    // Marks this as a guest session for auth.js
+        state.user.photoURL = null;
 
         saveState();
         transitionToApp();
@@ -1607,6 +1640,16 @@
         $('#profileName').value = state.user.name;
         $('#profileEmail').value = state.user.email;
         updateGreeting();
+
+        // Update sidebar avatar letter from user name (photo handled by auth.js if available)
+        const avatar = $('#sidebarAvatar');
+        if (avatar && !state.user.photoURL) {
+          avatar.textContent = (state.user.name || 'U').charAt(0).toUpperCase();
+        }
+        const sidebarRole = $('#sidebarUserRole');
+        if (sidebarRole) {
+          sidebarRole.textContent = state.user.isGuest ? 'Guest Mode' : 'Free Plan';
+        }
       }, 300);
     }
 
@@ -1614,6 +1657,7 @@
     if (logoutBtn) {
       logoutBtn.addEventListener('click', () => {
         state.user.isLoggedIn = false;
+        state.user.isGuest = false;
         saveState();
         $('#auth-overlay').style.display = 'flex';
         $('#appLayout').style.display = 'none';
@@ -1622,9 +1666,14 @@
         $('#loginPassword').value = '';
         
         navigateTo('dashboard'); // reset view
-        alert('Logged out successfully.');
+        // Note: Firebase sign-out is handled by auth.js which replaces this button's listener
       });
     }
+
+    window.appSetUserState = function(userData) {
+      state.user = { ...state.user, ...userData };
+      saveState();
+    };
 
     // Initialize UI Auth State
     if (state.user.isLoggedIn) {
